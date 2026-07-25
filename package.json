@@ -17,7 +17,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run test/v1 test/issues",
     "test:browser": "npm run build && vitest run test/browser",
-    "test:watch": "vitest test/v1 test/issues"
+    "test:watch": "vitest test/v1 test/issues",
+    "playground": "vite --host 127.0.0.1 examples/playground",
+    "playground:build": "vite build examples/playground"
   },
   "author": "anillc",
   "license": "MIT",

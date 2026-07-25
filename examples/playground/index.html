@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@onedice/core 浏览器演示</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main class="app">
+      <section class="panel controls" aria-labelledby="playground-title">
+        <div class="title-row">
+          <div>
+            <h1 id="playground-title">@onedice/core 浏览器演示</h1>
+            <p>用于检查浏览器端结果、原始值、掷骰轨迹、诊断信息和结构化错误。</p>
+          </div>
+          <button id="roll-button" type="button">掷骰</button>
+        </div>
+
+        <label class="field">
+          <span>表达式</span>
+          <input id="expression-input" value="2d20k1" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <div id="range-preview" class="range-preview" aria-live="polite"></div>
+
+        <div class="grid two">
+          <label class="field">
+            <span>语法模式</span>
+            <select id="syntax-select">
+              <option value="onedice">OneDice 默认语法</option>
+              <option value="fvtt-compatible">FVTT 兼容语法</option>
+            </select>
+          </label>
+
+          <label class="check deterministic">
+            <input id="deterministic-random" type="checkbox" checked />
+            <span>使用固定随机序列</span>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>随机序列</span>
+          <input id="random-sequence" value="11, 7, 5, 4, 6, 1" autocomplete="off" spellcheck="false" />
+        </label>
+
+        <section class="flags" aria-label="功能开关">
+          <label class="check"><input type="checkbox" data-feature="tupleLiterals" />元组字面量</label>
+          <label class="check"><input type="checkbox" data-feature="tupleOperators" />元组选择/丢弃</label>
+          <label class="check"><input type="checkbox" data-feature="clampOperators" />上下限裁剪</label>
+          <label class="check"><input type="checkbox" data-feature="tupleProjection" />元组投影</label>
+          <label class="check"><input type="checkbox" data-feature="tupleSlice" />元组裁切</label>
+          <label class="check"><input type="checkbox" data-feature="conditionals" />条件表达式</label>
+          <label class="check"><input type="checkbox" data-feature="loopOperator" />循环运算符</label>
+          <label class="check"><input type="checkbox" data-feature="fateAlias" />FATE 别名</label>
+          <label class="check"><input type="checkbox" data-feature="fvttSuccessCounting" />FVTT 成功计数</label>
+        </section>
+      </section>
+
+      <section class="panel output" aria-label="掷骰输出">
+        <div class="value-card">
+          <span>结果值</span>
+          <output id="value-output">-</output>
+        </div>
+
+        <div id="error-card" class="error-card hidden">
+          <div>
+            <span>错误</span>
+            <strong id="error-code">-</strong>
+          </div>
+          <p id="error-message"></p>
+          <pre id="error-meta">{}</pre>
+        </div>
+
+        <div class="json-grid">
+          <section>
+            <h2>原始值</h2>
+            <pre id="raw-output">{}</pre>
+          </section>
+          <section>
+            <h2>掷骰轨迹</h2>
+            <pre id="trace-output">{}</pre>
+          </section>
+          <section>
+            <h2>诊断信息</h2>
+            <pre id="diagnostics-output">[]</pre>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
