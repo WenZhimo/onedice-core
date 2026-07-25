@@ -519,6 +519,7 @@ GitHub issue、ADR、README 公开 API 或浏览器目标的内容，在本方�
 - **错误合同**：`DICE_INVALID_DICE_COUNT`、`DICE_INVALID_FACE_COUNT`、`DICE_INVALID_KEEP_COUNT`、`DICE_INCOMPATIBLE_MODIFIERS`、`DICE_POOL_MODIFIER_EXCLUSIVE` 必须带 `range` 和面向 UI 的 `hint`。
 - **trace/diagnostic**：普通 `d` trace 必须保留原始投掷顺序、`randomCall`、`selected/dropped`、modifier 类型和最终投影；文档化改动不得产生 non-fatal diagnostic，只有兼容归一化才进入 `diagnostics`。
 - **文档与测试**：README 必须包含槽位表、互斥矩阵、成功示例、失败示例和浏览器错误捕获示例；`test/issues/issue-011-d-notation.test.ts` 必须锁定成功路径和结构化失败路径。
+- **ADR 记录**：普通 `d` 的槽位、默认值、互斥矩阵、错误 `meta` 和浏览器 raw/trace 展示合同已经固化在 `docs/decisions/0010-d-expression-contract.md`。
 - **浏览器验收**：错误 `meta.range` 必须能直接映射到 textarea selection；非法 modifier 的高亮范围必须指向冲突片段，不能只指向整条表达式。
 
 #### #10 COC 奖惩骰规则

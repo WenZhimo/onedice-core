@@ -1,6 +1,7 @@
 import { Config, dice, fill, sum, indent } from '../..'
 import { OneDiceError } from '../../errors'
 import { getEvaluationContext, withEvaluationRange } from '../../evaluation/context'
+import type { TokenRange } from '../../parser'
 import { DiceNode } from '..'
 import { ANode, PNode } from '.'
 
@@ -34,6 +35,7 @@ export class DNode implements DiceNode<DEvaluation> {
     public e: DiceNode,
     public kq: 'k' | 'q',
     public pb: 'p' | 'b',
+    public modifierRanges: Partial<Record<'k' | 'q' | 'p' | 'b' | 'a', TokenRange>> = {},
   ) {}
 
   eval(config: Config): number {
@@ -43,14 +45,19 @@ export class DNode implements DiceNode<DEvaluation> {
     const d = this.d?.eval(config) ?? config.d.d
     const e = this.e?.eval(config) ?? config.d.e
     const rangeMeta = this.range ? { range: this.range } : {}
+    const diceRangeMeta = this.a?.range ? { range: this.a.range } : rangeMeta
+    const faceRangeMeta = this.b?.range ? { range: this.b.range } : rangeMeta
     if (a < 1) throw new OneDiceError(
       'DICE_INVALID_DICE_COUNT',
       'd 表达式的骰数必须大于等于 1',
       {
         operator: 'd',
         actual: a,
+        diceCount: a,
+        min: 1,
+        max: D_OPERAND_MAX,
         hint: '请使用类似 1d6、d20 或 2d100 的表达式。',
-        ...rangeMeta,
+        ...diceRangeMeta,
       },
     )
     if (a > D_OPERAND_MAX) throw new OneDiceError(
@@ -59,9 +66,12 @@ export class DNode implements DiceNode<DEvaluation> {
       {
         operator: 'd',
         actual: a,
+        diceCount: a,
         limit: D_OPERAND_MAX,
+        min: 1,
+        max: D_OPERAND_MAX,
         hint: '请使用小于等于 10000 的骰数。',
-        ...rangeMeta,
+        ...diceRangeMeta,
       },
     )
     if (b < 1) throw new OneDiceError(
@@ -70,8 +80,11 @@ export class DNode implements DiceNode<DEvaluation> {
       {
         operator: 'd',
         actual: b,
+        faceCount: b,
+        min: 1,
+        max: D_OPERAND_MAX,
         hint: '请使用类似 1d6、d20 或 2d100 的表达式。',
-        ...rangeMeta,
+        ...faceRangeMeta,
       },
     )
     if (b > D_OPERAND_MAX) throw new OneDiceError(
@@ -80,9 +93,12 @@ export class DNode implements DiceNode<DEvaluation> {
       {
         operator: 'd',
         actual: b,
+        faceCount: b,
         limit: D_OPERAND_MAX,
+        min: 1,
+        max: D_OPERAND_MAX,
         hint: '请使用小于等于 10000 的面数。',
-        ...rangeMeta,
+        ...faceRangeMeta,
       },
     )
     if (this.kq && c < 1) throw new OneDiceError(
@@ -91,8 +107,12 @@ export class DNode implements DiceNode<DEvaluation> {
       {
         operator: this.kq,
         actual: c,
+        keepCount: c,
+        diceCount: a,
+        min: 1,
+        max: a,
         hint: '请使用大于等于 1 的选取个数。',
-        ...rangeMeta,
+        ...this.modifierRangeMeta(this.kq),
       },
     )
     if (this.pb && d < 0) throw new OneDiceError(
@@ -101,8 +121,11 @@ export class DNode implements DiceNode<DEvaluation> {
       {
         operator: this.pb,
         actual: d,
+        modifier: this.pb,
+        bonusPenaltyCount: d,
+        min: 0,
         hint: '请使用非负的奖惩骰数量。',
-        ...rangeMeta,
+        ...this.modifierRangeMeta(this.pb),
       },
     )
     if (e !== null && e < 0) throw new OneDiceError(
@@ -111,8 +134,11 @@ export class DNode implements DiceNode<DEvaluation> {
       {
         operator: 'a',
         actual: e,
+        modifier: 'a',
+        poolThreshold: e,
+        min: 0,
         hint: '请使用非负的 a 骰池阈值。',
-        ...rangeMeta,
+        ...this.modifierRangeMeta('a'),
       },
     )
     this.evaluation = {
@@ -123,16 +149,23 @@ export class DNode implements DiceNode<DEvaluation> {
     }
 
     if (e !== null) {
-      if (this.kq || this.pb) throw new OneDiceError(
-        'DICE_POOL_MODIFIER_EXCLUSIVE',
-        'd 表达式的 a 骰池参数不能与 k/q 或 p/b 同时使用',
-        {
-          operator: 'd',
-          actual: this.expression(a, b, c, d, e),
-          hint: '请只保留 a[点数阈值]，或移除 a 后使用 k/q、p/b。',
-          ...rangeMeta,
-        },
-      )
+      if (this.kq || this.pb) {
+        const conflictingModifier = this.latestModifier('a', this.kq, this.pb)
+        throw new OneDiceError(
+          'DICE_POOL_MODIFIER_EXCLUSIVE',
+          'd 表达式的 a 骰池参数不能与 k/q 或 p/b 同时使用',
+          {
+            operator: 'd',
+            actual: this.expression(a, b, c, d, e),
+            modifier: conflictingModifier,
+            poolModifier: 'a',
+            conflictingModifier: conflictingModifier === 'a' ? (this.kq || this.pb) : conflictingModifier,
+            conflictWith: conflictingModifier === 'a' ? (this.kq || this.pb) : 'a',
+            hint: '请只保留 a[点数阈值]，或移除 a 后使用 k/q、p/b。',
+            ...this.modifierRangeMeta(conflictingModifier),
+          },
+        )
+      }
       const [value, node] = withEvaluationRange(
         config,
         this.range,
@@ -142,16 +175,23 @@ export class DNode implements DiceNode<DEvaluation> {
       this.evaluation.value = value
       return value
     } else {
-      if (this.kq && this.pb) throw new OneDiceError(
-        'DICE_INCOMPATIBLE_MODIFIERS',
-        'd 表达式不能同时使用 k/q 选取线与 p/b 奖惩骰',
-        {
-          operator: 'd',
-          actual: this.expression(a, b, c, d, e),
-          hint: '请在 k/q 和 p/b 中只选择一类修饰符。',
-          ...rangeMeta,
-        },
-      )
+      if (this.kq && this.pb) {
+        const conflictingModifier = this.latestModifier(this.kq, this.pb)
+        throw new OneDiceError(
+          'DICE_INCOMPATIBLE_MODIFIERS',
+          'd 表达式不能同时使用 k/q 选取线与 p/b 奖惩骰',
+          {
+            operator: 'd',
+            actual: this.expression(a, b, c, d, e),
+            modifier: conflictingModifier,
+            leftModifier: this.kq,
+            rightModifier: this.pb,
+            conflictWith: conflictingModifier === this.kq ? this.pb : this.kq,
+            hint: '请在 k/q 和 p/b 中只选择一类修饰符。',
+            ...this.modifierRangeMeta(conflictingModifier),
+          },
+        )
+      }
       if (this.kq && c > a) throw new OneDiceError(
         'DICE_INVALID_KEEP_COUNT',
         'd 表达式的选取个数不能大于骰数',
@@ -159,8 +199,13 @@ export class DNode implements DiceNode<DEvaluation> {
           operator: this.kq,
           actual: c,
           limit: a,
+          modifier: this.kq,
+          keepCount: c,
+          diceCount: a,
+          min: 1,
+          max: a,
           hint: `当前骰数为 ${a}，选取个数必须小于等于 ${a}。`,
-          ...rangeMeta,
+          ...this.modifierRangeMeta(this.kq),
         },
       )
       const rollCount = this.pb ? a * d : a
@@ -230,6 +275,21 @@ export class DNode implements DiceNode<DEvaluation> {
 
   pure(): boolean {
     return false
+  }
+
+  private modifierRangeMeta(modifier?: 'k' | 'q' | 'p' | 'b' | 'a') {
+    const range = modifier ? this.modifierRanges[modifier] : undefined
+    return range ? { range } : (this.range ? { range: this.range } : {})
+  }
+
+  private latestModifier(...modifiers: Array<'k' | 'q' | 'p' | 'b' | 'a'>) {
+    return modifiers
+      .filter(Boolean)
+      .sort((left, right) => {
+        const leftStart = this.modifierRanges[left]?.start ?? -1
+        const rightStart = this.modifierRanges[right]?.start ?? -1
+        return rightStart - leftStart
+      })[0]
   }
 
   toString(indentation = 0): string {

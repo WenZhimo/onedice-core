@@ -535,7 +535,7 @@ console.log(fateAlias.diagnostics[0].code) // 'SYNTAX_NORMALIZED'
 
 ## `d` 表达式说明
 
-普通多面骰应当理解为：
+普通多面骰 `d` 应当按槽位合同理解，而不是按压缩口诀猜测参数位置：
 
 ```text
 [骰数]d[面数][骰池参数 | 选取线参数 奖惩数参数]
@@ -545,10 +545,44 @@ console.log(fateAlias.diagnostics[0].code) // 'SYNTAX_NORMALIZED'
 奖惩数参数：(p|b)[奖惩个数]
 ```
 
-有效组合：
+形式化展开：
+
+```text
+DExpression =
+  [DiceCount] "d" [FaceCount] DModifier*
+
+DModifier =
+  PoolModifier
+  | SelectionModifier
+  | BonusPenaltyModifier
+
+PoolModifier =
+  "a" Threshold
+
+SelectionModifier =
+  ("k" | "q") Count
+
+BonusPenaltyModifier =
+  ("p" | "b") Count
+```
+
+槽位与默认值：
+
+| 槽位 | 示例 | 默认值 | 合同 |
+| --- | --- | --- | --- |
+| `DiceCount` / 骰数 | `2d6` 的 `2` | `1` | 必须是 `1..10000` 之间的整数；缺省时使用 `config.d.a`，默认 `1` |
+| `FaceCount` / 面数 | `2d6` 的 `6` | `100` | 必须是 `1..10000` 之间的整数；缺省时使用 `config.d.b`，默认 `100`，因此 `d` 等价于 `1d100` |
+| `PoolModifier` / 骰池 | `2d6a5` 的 `a5` | 无 | `aE` 会转为骰池计数，阈值 `E` 必须非负，并且 `a` 必须独占 |
+| `SelectionModifier` / 选取线 | `2d20k1` 的 `k1` | `DiceCount` | `kC` 保留最大 C 个，`qC` 保留最小 C 个，`C` 必须在 `1..DiceCount` 内 |
+| `BonusPenaltyModifier` / 奖惩骰 | `2d20b1` 的 `b1` | `0` | `pD` 使用 COC 惩罚骰，`bD` 使用 COC 奖励骰，`D` 必须非负 |
+
+合法组合：
 
 | 表达式 | 含义 |
 | --- | --- |
+| `d` | 掷 `1d100`，使用默认骰数和默认面数 |
+| `d20` | 掷 `1d20`，省略骰数 |
+| `2d` | 掷 `2d100`，省略面数 |
 | `AdB` | 掷 A 个 B 面骰并求和 |
 | `AdBkC` | 掷 A 个 B 面骰，保留最大的 C 个 |
 | `AdBqC` | 掷 A 个 B 面骰，保留最小的 C 个 |
@@ -556,12 +590,32 @@ console.log(fateAlias.diagnostics[0].code) // 'SYNTAX_NORMALIZED'
 | `AdBbD` | 使用 COC 奖励骰规则 |
 | `AdBaE` | 转为骰池计数 |
 
-约束：
+非法组合与错误合同：
+
+| 输入 | 错误码 | 稳定 `meta` 字段 | UI 展示含义 |
+| --- | --- | --- | --- |
+| `0d6`、`10001d1` | `DICE_INVALID_DICE_COUNT` | `operator='d'`、`actual`、`diceCount`、`limit`、`min`、`max`、`range`、`hint` | 高亮骰数槽位，提示骰数必须在 `1..10000` |
+| `1d0`、`1d10001` | `DICE_INVALID_FACE_COUNT` | `operator='d'`、`actual`、`faceCount`、`limit`、`min`、`max`、`range`、`hint` | 高亮面数槽位，提示面数必须在 `1..10000` |
+| `2d6k3`、`2d6q3` | `DICE_INVALID_KEEP_COUNT` | `operator='k'/'q'`、`modifier`、`actual`、`keepCount`、`diceCount`、`limit`、`range`、`hint` | 高亮 `k/q` modifier，提示选取个数不能超过骰数 |
+| `2d20k1p1`、`2d20q1b1` | `DICE_INCOMPATIBLE_MODIFIERS` | `operator='d'`、`modifier`、`leftModifier`、`rightModifier`、`conflictWith`、`range`、`hint` | 高亮后出现的冲突 modifier，提示 `k/q` 与 `p/b` 只能二选一 |
+| `2d6a5k1`、`2d6a5p1` | `DICE_POOL_MODIFIER_EXCLUSIVE` | `operator='d'`、`modifier`、`poolModifier`、`conflictingModifier`、`conflictWith`、`range`、`hint` | 高亮冲突 modifier，提示 `a` 骰池必须独占 |
+| `1d6+` | `PARSE_UNEXPECTED_END` | `actual='$'`、`expected`、`range`、`hint` | 高亮输入末尾，提示补齐右操作数 |
+| `1d6!` | `PARSE_UNSUPPORTED_SYNTAX` | `operator='!'`、`feature='factorialOrNotOperator'`、`range`、`hint` | 高亮未支持尾缀，提示该语法仍保留 |
+
+互斥规则：
 
 - `k/q` 不得与 `p/b` 同时使用。
 - `k/q` 的选取个数不得大于实际骰数。
 - `a` 骰池模式应当作为独占模式处理。
 - 骰数和面数必须在 `1` 到 `10000` 之间；超过该语义上限会在随机调用前失败。
+- `maxRollCount` / `maxRandomCalls` 是运行预算，不是面数上限；预算错误会使用 `DICE_TOO_MANY_ROLLS` 或 `EVALUATION_BUDGET_EXCEEDED`，不得和参数越界混用。
+
+`roll()` 面向浏览器 UI 的展示合同：
+
+- 普通 `d` 的 `raw.kind` 是 `tuple`，`raw.items` 按原始投掷顺序排列，每项保留 `roll.index`、`roll.randomCall`、`roll.selected`、`roll.dropped` 和 `roll.source`。
+- 普通 `d` 的 `trace.kind` 是 `dice`，`trace.rolls` 同样按原始投掷顺序排列；`trace.modifiers` 会记录 `selection`、`bonusPenalty` 或 `pool` modifier。
+- `trace.range` 覆盖完整 `d` 表达式；参数错误或 modifier 冲突的 `error.meta.range` 会尽量指向具体槽位或冲突 modifier，浏览器可以直接映射到 textarea selection。
+- 形式化 `d` 合同的设计记录见 [ADR-010：普通 `d` 表达式合同](./docs/decisions/0010-d-expression-contract.md)。
 
 ## 已对齐的上游行为
 

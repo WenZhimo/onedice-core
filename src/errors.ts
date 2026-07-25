@@ -38,12 +38,25 @@ export interface OneDiceErrorMeta {
   expected?: string[] | number[]
   actual?: unknown
   limit?: number
+  min?: number
+  max?: number
   received?: unknown
   index?: number
   start?: number
   end?: number
   step?: number
   budgetKind?: string
+  diceCount?: number
+  faceCount?: number
+  keepCount?: number
+  bonusPenaltyCount?: number
+  poolThreshold?: number
+  modifier?: string
+  conflictWith?: string
+  leftModifier?: string
+  rightModifier?: string
+  poolModifier?: string
+  conflictingModifier?: string
   variable?: string
   availableVariables?: string[]
   hint?: string

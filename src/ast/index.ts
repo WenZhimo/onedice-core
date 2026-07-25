@@ -45,6 +45,7 @@ export interface DiceNode<T = unknown> {
 
 interface Options extends DiceNode {
   options: Record<string, DiceNode>
+  optionRanges?: Record<string, TokenRange>
 }
 
 export function resolve(producer: Producer, nodes: BufferElement[]): BufferElement {
@@ -181,9 +182,10 @@ export function resolve(producer: Producer, nodes: BufferElement[]): BufferEleme
       const a = nodes[0] as DiceNode
       const b = nodes[2] as DiceNode
       const o = (nodes[3] as Options)?.options || {}
+      const optionRanges = (nodes[3] as Options)?.optionRanges || {}
       const kq = o.k ? 'k' : (o.q ? 'q' : null)
       const pb = o.p ? 'p' : (o.b ? 'b' : null)
-      return withRange(new DNode(a, b, o.k || o.q, o.p || o.b, o.a, kq, pb), nodes)
+      return withRange(new DNode(a, b, o.k || o.q, o.p || o.b, o.a, kq, pb, optionRanges), nodes)
     }
     case 33:
     case 34: {
@@ -219,9 +221,11 @@ export function resolve(producer: Producer, nodes: BufferElement[]): BufferEleme
     case 38:
     case 41: {
       let prev = nodes[0] as Options
-      if (!prev) prev = { options: {} } as Options
+      if (!prev) prev = { options: {}, optionRanges: {} } as Options
+      if (!prev.optionRanges) prev.optionRanges = {}
       const name = (nodes[1] as TermToken).value
       prev.options[name] = nodes[2] as DiceNode
+      prev.optionRanges[name] = getNodeRange([nodes[1], nodes[2]]) ?? (nodes[1] as TermToken).range
       return withRange(prev, nodes)
     }
     default:

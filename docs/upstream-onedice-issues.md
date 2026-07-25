@@ -50,6 +50,7 @@ URL：https://github.com/OlivOS-Team/onedice/issues/11
 - **测试合同**：测试文件应当按语义命名，而不是只按表达式命名；最小覆盖必须包含 dice count、face count、pool threshold、keep/drop selection、bonus/penalty count。
 - **浏览器合同**：错误 `range` 必须能映射到 textarea selection；UI 应当能高亮冲突 modifier，而不是只能高亮整条表达式。
 - **兼容合同**：既有合法 V1 表达式必须保持行为稳定；新增文档或错误码不得改变 `dice(input, config): [number, DiceNode]` 的返回形态。
+- **执行记录**：普通 `d` 的槽位、默认值、互斥矩阵、错误 `meta` 和浏览器 raw/trace 展示合同已经固化在 [ADR-010](./decisions/0010-d-expression-contract.md)。
 
 ### #3：OneDice V2 草案
 
