@@ -1,19 +1,31 @@
-import { Config, dice, fill, negative, sum, indent } from '../..'
+import { Config, dice, fill, sum, indent } from '../..'
+import { OneDiceError } from '../../errors'
+import { getEvaluationContext, withEvaluationRange } from '../../evaluation/context'
 import { DiceNode } from '..'
 import { ANode, PNode } from '.'
+
+const D_OPERAND_MAX = 10000
 
 export interface DEvaluation {
   expression: string
   aNode: ANode
   pNodes: PNode[]
-  roll: [number, boolean][]
+  roll: DRollEvaluation[]
   a: number, b: number, c: number, d: number, e: number
   kq: 'k' | 'q', pb: 'p' | 'b'
   value: number
 }
 
+export interface DRollEvaluation {
+  index: number
+  randomCall: number
+  value: number
+  selected: boolean
+}
+
 export class DNode implements DiceNode<DEvaluation> {
   evaluation: DEvaluation
+  range?: DiceNode['range']
   constructor(
     public a: DiceNode,
     public b: DiceNode,
@@ -30,8 +42,79 @@ export class DNode implements DiceNode<DEvaluation> {
     const c = this.c?.eval(config) ?? config.d.c ?? a
     const d = this.d?.eval(config) ?? config.d.d
     const e = this.e?.eval(config) ?? config.d.e
-    if (negative(a, b, c, d, e)) throw new Error('参数不能为负数')
-    if (b < 1) throw new Error('参数错误: AdB(kq)C(pb)DaE 中 B 不能小于 1')
+    const rangeMeta = this.range ? { range: this.range } : {}
+    if (a < 1) throw new OneDiceError(
+      'DICE_INVALID_DICE_COUNT',
+      'd 表达式的骰数必须大于等于 1',
+      {
+        operator: 'd',
+        actual: a,
+        hint: '请使用类似 1d6、d20 或 2d100 的表达式。',
+        ...rangeMeta,
+      },
+    )
+    if (a > D_OPERAND_MAX) throw new OneDiceError(
+      'DICE_INVALID_DICE_COUNT',
+      'd 表达式的骰数不能超过 10000',
+      {
+        operator: 'd',
+        actual: a,
+        limit: D_OPERAND_MAX,
+        hint: '请使用小于等于 10000 的骰数。',
+        ...rangeMeta,
+      },
+    )
+    if (b < 1) throw new OneDiceError(
+      'DICE_INVALID_FACE_COUNT',
+      'd 表达式的面数必须大于等于 1',
+      {
+        operator: 'd',
+        actual: b,
+        hint: '请使用类似 1d6、d20 或 2d100 的表达式。',
+        ...rangeMeta,
+      },
+    )
+    if (b > D_OPERAND_MAX) throw new OneDiceError(
+      'DICE_INVALID_FACE_COUNT',
+      'd 表达式的面数不能超过 10000',
+      {
+        operator: 'd',
+        actual: b,
+        limit: D_OPERAND_MAX,
+        hint: '请使用小于等于 10000 的面数。',
+        ...rangeMeta,
+      },
+    )
+    if (this.kq && c < 1) throw new OneDiceError(
+      'DICE_INVALID_KEEP_COUNT',
+      'd 表达式的选取个数必须大于等于 1',
+      {
+        operator: this.kq,
+        actual: c,
+        hint: '请使用大于等于 1 的选取个数。',
+        ...rangeMeta,
+      },
+    )
+    if (this.pb && d < 0) throw new OneDiceError(
+      'PERCENTILE_INVALID_BONUS_PENALTY_COUNT',
+      'd 表达式的奖惩骰数量不能为负数',
+      {
+        operator: this.pb,
+        actual: d,
+        hint: '请使用非负的奖惩骰数量。',
+        ...rangeMeta,
+      },
+    )
+    if (e !== null && e < 0) throw new OneDiceError(
+      'DICE_INVALID_KEEP_COUNT',
+      'd 表达式的 a 骰池阈值不能为负数',
+      {
+        operator: 'a',
+        actual: e,
+        hint: '请使用非负的 a 骰池阈值。',
+        ...rangeMeta,
+      },
+    )
     this.evaluation = {
       a, b, c, d, e, kq: this.kq, pb: this.pb,
       expression: this.expression(a, b, c, d ,e),
@@ -40,26 +123,87 @@ export class DNode implements DiceNode<DEvaluation> {
     }
 
     if (e !== null) {
-      const [value, node] = dice(`${a}a${b + 1}k${e}m${b}`, config)
+      if (this.kq || this.pb) throw new OneDiceError(
+        'DICE_POOL_MODIFIER_EXCLUSIVE',
+        'd 表达式的 a 骰池参数不能与 k/q 或 p/b 同时使用',
+        {
+          operator: 'd',
+          actual: this.expression(a, b, c, d, e),
+          hint: '请只保留 a[点数阈值]，或移除 a 后使用 k/q、p/b。',
+          ...rangeMeta,
+        },
+      )
+      const [value, node] = withEvaluationRange(
+        config,
+        this.range,
+        () => dice(`${a}a${b + 1}k${e}m${b}`, config),
+      )
       this.evaluation.aNode = node as ANode
       this.evaluation.value = value
       return value
     } else {
-      if (this.kq && this.pb) throw new Error('k/q 与 p/b 不可同时使用')
-      if (this.kq && c > b) throw new Error('选取骰子个数大于骰子个数')
+      if (this.kq && this.pb) throw new OneDiceError(
+        'DICE_INCOMPATIBLE_MODIFIERS',
+        'd 表达式不能同时使用 k/q 选取线与 p/b 奖惩骰',
+        {
+          operator: 'd',
+          actual: this.expression(a, b, c, d, e),
+          hint: '请在 k/q 和 p/b 中只选择一类修饰符。',
+          ...rangeMeta,
+        },
+      )
+      if (this.kq && c > a) throw new OneDiceError(
+        'DICE_INVALID_KEEP_COUNT',
+        'd 表达式的选取个数不能大于骰数',
+        {
+          operator: this.kq,
+          actual: c,
+          limit: a,
+          hint: `当前骰数为 ${a}，选取个数必须小于等于 ${a}。`,
+          ...rangeMeta,
+        },
+      )
       const rollCount = this.pb ? a * d : a
-      if (rollCount > config.maxRollCount) throw new Error('掷出骰子过多')
+      if (rollCount > config.maxRollCount) throw new OneDiceError(
+        'DICE_TOO_MANY_ROLLS',
+        '掷出骰子数量超过 maxRollCount',
+        {
+          operator: 'd',
+          actual: rollCount,
+          limit: config.maxRollCount,
+          hint: `当前上限为 ${config.maxRollCount}，请减少骰数或调高 maxRollCount。`,
+          ...rangeMeta,
+        },
+      )
 
       if (this.pb) {
-        const pbs = fill(a).map(_ => dice(`${this.pb}${d}`, config))
+        const pbs = fill(a).map(_ => withEvaluationRange(
+          config,
+          this.range,
+          () => dice(`${this.pb}${d}`, config),
+        ))
         this.evaluation.pNodes = pbs.map(n => n[1] as PNode)
         const value = sum(pbs.map(n => n[0]))
         this.evaluation.value = value
         return value
       }
 
-      const roll: [number, boolean][] = fill(a).map(_ => [config.random(1, b), false])
-      roll.sort()
+      const roll: DRollEvaluation[] = withEvaluationRange(
+        config,
+        this.range,
+        () => fill(a).map((_, index) => {
+          const value = config.random(1, b)
+          const context = getEvaluationContext(config)
+
+          return {
+            index,
+            randomCall: context?.budget.randomCalls ?? index + 1,
+            value,
+            selected: false,
+          }
+        }),
+      )
+      roll.sort((left, right) => left.value - right.value)
       this.evaluation.roll = [...roll]
       if (this.kq) {
         if (this.kq === 'k') {
@@ -68,8 +212,8 @@ export class DNode implements DiceNode<DEvaluation> {
           roll.splice(c)
         }
       }
-      roll.forEach(n => n[1] = true)
-      const value = sum(roll.map(n => n[0]))
+      roll.forEach(n => n.selected = true)
+      const value = sum(roll.map(n => n.value))
       this.evaluation.value = value
       return value
     }
@@ -121,7 +265,7 @@ export class DNode implements DiceNode<DEvaluation> {
     if (this.kq) {
       if (pure) {
         const roll = this.evaluation.roll
-          .map(([n, selected]) => selected ? `[${n}]` : n).join(', ')
+          .map(({ value, selected }) => selected ? `[${value}]` : value).join(', ')
         return `{${roll}}(${result})`
       }
       return [
@@ -148,7 +292,7 @@ export class DNode implements DiceNode<DEvaluation> {
       ]
       return lines.join('\n')
     }
-    const roll = this.evaluation.roll.map(n => n[0]).join(', ')
+    const roll = this.evaluation.roll.map(n => n.value).join(', ')
     if (pure) {
       if (this.evaluation.a === 1) return `(${result})`
       return `{${roll}}(${result})`

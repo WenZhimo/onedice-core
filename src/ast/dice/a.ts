@@ -1,14 +1,19 @@
-import { Config, fill, negative, indent } from '../..'
+import { Config, fill, indent } from '../..'
+import { OneDiceError } from '../../errors'
+import { getEvaluationContext, withEvaluationRange } from '../../evaluation/context'
 import { DiceNode } from '..'
+
+export type ARollEvaluation = [value: number, rerolled: boolean, selected: boolean, randomCall: number]
 
 export interface AEvaluation {
   expression: string
-  rounds: [number, boolean, boolean][][]
+  rounds: ARollEvaluation[][]
   a: number, b: number, c: number, d: number, e: number
   value: number
 }
 
 export class ANode implements DiceNode<AEvaluation> {
+  range?: DiceNode['range']
   evaluation: AEvaluation
   constructor(
     public a: DiceNode,
@@ -24,39 +29,104 @@ export class ANode implements DiceNode<AEvaluation> {
     const c = this.c?.eval(config) ?? config.a.c
     const d = this.d?.eval(config) ?? config.a.d
     const e = this.e?.eval(config) ?? config.a.e
-    if (negative(a, b, c, d, e)) throw new Error('参数不能为负数')
-    if (a === null || b === null) throw new Error('参数错误： AaBkCqDmE 中 A, B 是必须的')
-    if (b < 2) throw new Error('参数错误: AaBkCqDmE 中 B 不能小于 2')
-    if (e < 1) throw new Error('参数错误: AaBkCqDmE 中 E 不能小于 1')
+    const rangeMeta = this.range ? { range: this.range } : {}
+    if (a === null || a < 1) throw new OneDiceError(
+      'DICE_INVALID_DICE_COUNT',
+      'a 骰池的骰数必须大于等于 1',
+      {
+        operator: 'a',
+        actual: a,
+        ...rangeMeta,
+        hint: '请在 a 前提供正整数骰数，例如 1a2 或 3a8。',
+      },
+    )
+    if (b === null || b < 2) throw new OneDiceError(
+      'DICE_INVALID_FACE_COUNT',
+      'a 骰池的触发阈值必须大于等于 2',
+      {
+        operator: 'a',
+        actual: b,
+        ...rangeMeta,
+        hint: '请在 a 后提供大于等于 2 的阈值，例如 1a2。',
+      },
+    )
+    if (c !== null && c < 0) throw new OneDiceError(
+      'DICE_INVALID_KEEP_COUNT',
+      'a 骰池的 k 下限不能为负数',
+      {
+        operator: 'k',
+        actual: c,
+        ...rangeMeta,
+        hint: '请使用非负的 k 下限。',
+      },
+    )
+    if (d !== null && d < 0) throw new OneDiceError(
+      'DICE_INVALID_KEEP_COUNT',
+      'a 骰池的 q 上限不能为负数',
+      {
+        operator: 'q',
+        actual: d,
+        ...rangeMeta,
+        hint: '请使用非负的 q 上限。',
+      },
+    )
+    if (e < 1) throw new OneDiceError(
+      'DICE_INVALID_FACE_COUNT',
+      'a 骰池的 m 面数必须大于等于 1',
+      {
+        operator: 'm',
+        actual: e,
+        ...rangeMeta,
+        hint: '请使用大于等于 1 的 m 面数。',
+      },
+    )
     this.evaluation = {
       a, b, c, d, e, rounds: [],
       expression: this.expression(a, b, c, d, e),
       value: null,
     }
     
-    let rollCount = 0
+    return withEvaluationRange(config, this.range, () => {
+      let rollCount = 0
+      let fallbackRandomCall = 0
 
-    let count = a
-    const roll: [number, boolean, boolean][] = []
-    while (count !== 0) {
-      rollCount += count
-      if (rollCount > config.maxRollCount) throw new Error('掷出骰子过多')
-      const r: [number, boolean, boolean][] =
-        fill(count).map(_ => [config.random(1, e), false, false])
-      this.evaluation.rounds.push(r)
-      count = r.filter(n => {
-        if (n[0] < b) return false
-        return n[1] = true
+      let count = a
+      const roll: ARollEvaluation[] = []
+      while (count !== 0) {
+        rollCount += count
+        if (rollCount > config.maxRollCount) throw new OneDiceError(
+          'DICE_TOO_MANY_ROLLS',
+          '掷出骰子数量超过 maxRollCount',
+          {
+            operator: 'a',
+            actual: rollCount,
+            limit: config.maxRollCount,
+            ...rangeMeta,
+            hint: `当前上限为 ${config.maxRollCount}，请减少骰池规模或调高 maxRollCount。`,
+          },
+        )
+        const r: ARollEvaluation[] =
+          fill(count).map(_ => {
+            const value = config.random(1, e)
+            const context = getEvaluationContext(config)
+
+            return [value, false, false, context?.budget.randomCalls ?? ++fallbackRandomCall]
+          })
+        this.evaluation.rounds.push(r)
+        count = r.filter(n => {
+          if (n[0] < b) return false
+          return n[1] = true
+        }).length
+        roll.push(...r)
+      }
+      const value = roll.filter(n => {
+        if (c !== null && n[0] < c) return false
+        if (d !== null && n[0] > d) return false
+        return n[2] = true
       }).length
-      roll.push(...r)
-    }
-    const value = roll.filter(n => {
-      if (c !== null && n[0] < c) return false
-      if (d !== null && n[0] > d) return false
-      return n[2] = true
-    }).length
-    this.evaluation.value = value
-    return value
+      this.evaluation.value = value
+      return value
+    })
   }
 
   expression(a: number, b: number, c: number, d: number, e: number) {

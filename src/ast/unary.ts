@@ -1,6 +1,7 @@
 
 import { Config } from '..'
-import { DiceNode, NumberNode } from '.'
+import { OneDiceError } from '../errors'
+import { DiceNode } from '.'
 
 export interface UnaryEvaluation {
   operator: string
@@ -26,7 +27,14 @@ export class UnaryNode implements DiceNode<UnaryEvaluation> {
         value = -right
         break
       default:
-        throw new Error('未知运算符')
+        throw new OneDiceError(
+          'PARSE_UNSUPPORTED_SYNTAX',
+          `未知一元运算符：${this.operator}`,
+          {
+            operator: this.operator,
+            hint: '该一元运算符尚未被 OneDice V1 支持。',
+          },
+        )
     }
     this.evaluation = {
       right, operator: this.operator, value
