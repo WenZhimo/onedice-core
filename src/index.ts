@@ -4,6 +4,9 @@ import { attachEvaluationContext, createEvaluationContext, getEvaluationContext 
 import { random } from './utils'
 import { DiceNode } from './ast'
 import { Config, normalizeFeatureFlags, normalizeSyntax } from './config'
+import { OneDiceError } from './errors'
+import { normalizeFvttCompatibleInput } from './parser/fvtt-normalize'
+import { parseFvttSuccessCounting } from './parser/fvtt-success-count'
 import {
   createProgramVariableSnapshot,
   parseProgramAssignment,
@@ -43,10 +46,19 @@ function evaluate(input: string, config: Config = {}) {
   const diagnosticsStart = context.diagnostics.length
   const previousInput = context.currentInput
   context.currentInput = input
+  const normalizedInput = normalizeFvttCompatibleInput(input, {
+    syntax: normalizeSyntax(normalizedConfig.syntax),
+    features: normalizeFeatureFlags(normalizedConfig.features),
+    context,
+  })
   const evaluationConfig = attachEvaluationContext(normalizedConfig, context)
+  const parseConfig = normalizedInput.changed
+    ? { ...evaluationConfig, features: normalizedInput.features }
+    : evaluationConfig
 
   try {
-    const root = parse(input, evaluationConfig) as DiceNode
+    const root = parseFvttSuccessCounting(normalizedInput.input, parseConfig)
+      ?? parse(normalizedInput.input, parseConfig) as DiceNode
     const value = root.eval(evaluationConfig)
     return {
       value,
@@ -54,8 +66,24 @@ function evaluate(input: string, config: Config = {}) {
       context,
       diagnostics: context.diagnostics.slice(diagnosticsStart),
     }
+  } catch (error) {
+    restoreOriginalInputOnError(error, input, normalizedInput.input)
+    throw error
   } finally {
     context.currentInput = previousInput
+  }
+}
+
+function restoreOriginalInputOnError(error: unknown, originalInput: string, normalizedInput: string) {
+  if (
+    normalizedInput !== originalInput
+    && error instanceof OneDiceError
+    && error.meta.input === normalizedInput
+  ) {
+    error.meta = {
+      ...error.meta,
+      input: originalInput,
+    }
   }
 }
 
