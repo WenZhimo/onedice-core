@@ -221,10 +221,11 @@ function actionWrite(origin: Action, action: Action, item: Item) {
   // action: reduce, origin: shift -> reduce list
   // other -> conflict
   const list = [shiftList, reduceList][(action[0] << 1) + origin[0] - 1]
+  if (!list) throw new Error('conflict producer ' + item.producer.id + ' position ' + item.position + ' action ' + action[0] + ':' + action[1] + ' origin ' + origin[0] + ':' + origin[1])
   if (list.find(([id, position]) => {
     return item.producer.id === id && item.position === position
   })) return true
-  throw new Error('conflict')
+  throw new Error('conflict producer ' + item.producer.id + ' position ' + item.position)
 }
 
 const clst = toLALR(cluster())
@@ -263,6 +264,58 @@ clst.forEach(itemset => {
   })
 })
 
+const emptyProducerIdsByName = new Map<string, number>()
+Object.values(grammars).flat()
+  .filter(producer => producer.tokens[0] === 'empty')
+  .forEach(producer => emptyProducerIdsByName.set(producer.name, producer.id))
+
+let patchedNullableReductions = true
+while (patchedNullableReductions) {
+  patchedNullableReductions = false
+  for (const states of Object.values(action)) {
+    for (const [symbol, stateAction] of Object.entries(states)) {
+      const emptyProducerId = emptyProducerIdsByName.get(symbol)
+      if (!emptyProducerId || stateAction[0] !== ActionType.goto) continue
+
+      const targetStates = action[String(stateAction[1])] ?? {}
+      for (const [lookahead, targetAction] of Object.entries(targetStates)) {
+        if (!terms.includes(lookahead)) continue
+        if (targetAction[0] !== ActionType.reduce) continue
+        if (states[lookahead]) continue
+
+        states[lookahead] = [ActionType.reduce, emptyProducerId]
+        patchedNullableReductions = true
+      }
+    }
+  }
+}
+const reduceLookaheadsByProducer = new Map<number, Set<string>>()
+for (const states of Object.values(action)) {
+  for (const [lookahead, stateAction] of Object.entries(states)) {
+    if (!terms.includes(lookahead)) continue
+    if (stateAction[0] !== ActionType.reduce) continue
+
+    let lookaheads = reduceLookaheadsByProducer.get(stateAction[1])
+    if (!lookaheads) {
+      lookaheads = new Set<string>()
+      reduceLookaheadsByProducer.set(stateAction[1], lookaheads)
+    }
+    lookaheads.add(lookahead)
+  }
+}
+
+for (const states of Object.values(action)) {
+  for (const [lookahead, stateAction] of Object.entries({ ...states })) {
+    if (!terms.includes(lookahead)) continue
+    if (stateAction[0] !== ActionType.reduce) continue
+
+    const lookaheads = reduceLookaheadsByProducer.get(stateAction[1]) ?? new Set<string>()
+    for (const reduceLookahead of lookaheads) {
+      if (states[reduceLookahead]) continue
+      states[reduceLookahead] = [ActionType.reduce, stateAction[1]]
+    }
+  }
+}
 terms.pop() // pop $
 writeFileSync(resolve(__dirname, '../src/parser/grammar.json'), JSON.stringify({
   terms,
