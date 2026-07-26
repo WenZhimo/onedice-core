@@ -5,6 +5,7 @@ const playgroundRoot = __dirname
 
 export default defineConfig({
   root: playgroundRoot,
+  base: process.env.ONEDICE_PLAYGROUND_BASE ?? '/',
   resolve: {
     alias: {
       '@onedice/core': resolve(playgroundRoot, '../../src/index.ts'),
@@ -13,5 +14,11 @@ export default defineConfig({
   build: {
     outDir: resolve(playgroundRoot, 'dist'),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        playground: resolve(playgroundRoot, 'index.html'),
+        docs: resolve(playgroundRoot, 'docs.html'),
+      },
+    },
   },
 })

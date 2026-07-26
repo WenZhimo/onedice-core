@@ -5,6 +5,11 @@ import {
   type RollFeatureFlags,
   type SyntaxMode,
 } from '@onedice/core'
+import {
+  collectDiceGroups,
+  describeRollTrace,
+} from './explain'
+import { renderDiceResult } from './dice-result'
 import './styles.css'
 
 type FeatureFlagName = keyof Omit<RollFeatureFlags, 'program' | 'variableAliases'>
@@ -28,6 +33,8 @@ const deterministicRandom = mustElement<HTMLInputElement>('deterministic-random'
 const randomSequence = mustElement<HTMLInputElement>('random-sequence')
 const rangePreview = mustElement<HTMLDivElement>('range-preview')
 const valueOutput = mustElement<HTMLOutputElement>('value-output')
+const explanationOutput = mustElement<HTMLUListElement>('explanation-output')
+const diceOutput = mustElement<HTMLDivElement>('dice-output')
 const rawOutput = mustElement<HTMLPreElement>('raw-output')
 const traceOutput = mustElement<HTMLPreElement>('trace-output')
 const diagnosticsOutput = mustElement<HTMLPreElement>('diagnostics-output')
@@ -37,6 +44,7 @@ const errorMessage = mustElement<HTMLParagraphElement>('error-message')
 const errorMeta = mustElement<HTMLPreElement>('error-meta')
 
 rollButton.addEventListener('click', runRoll)
+expressionInput.addEventListener('input', runRoll)
 expressionInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') runRoll()
 })
@@ -47,7 +55,31 @@ for (const checkbox of featureCheckboxes()) {
   checkbox.addEventListener('change', runRoll)
 }
 
+applyInitialParams()
 runRoll()
+
+function applyInitialParams() {
+  const params = new URLSearchParams(window.location.search)
+  const expression = params.get('expr')
+  const syntax = params.get('syntax')
+  const random = params.get('random')
+  const features = params.get('features')
+
+  if (expression) expressionInput.value = expression
+  if (syntax === 'onedice' || syntax === 'fvtt-compatible') {
+    syntaxSelect.value = syntax
+  }
+  if (random) {
+    deterministicRandom.checked = true
+    randomSequence.value = random
+  }
+  if (features) {
+    const enabledFeatures = new Set(features.split(',').map(feature => feature.trim()).filter(Boolean))
+    for (const name of featureFlagNames) {
+      featureInput(name).checked = enabledFeatures.has(name)
+    }
+  }
+}
 
 function runRoll() {
   const input = expressionInput.value
@@ -55,18 +87,28 @@ function runRoll() {
   clearRange()
 
   try {
+    const syntax = syntaxSelect.value as SyntaxMode
+    const features = selectedFeatures()
     const result = roll(input, {
-      syntax: syntaxSelect.value as SyntaxMode,
-      features: selectedFeatures(),
+      syntax,
+      features,
       ...(deterministicRandom.checked ? { random: createSequenceRandom(randomSequence.value) } : {}),
     })
 
     valueOutput.textContent = String(result.value)
+    renderExplanation(describeRollTrace(result.trace, { syntax, features }))
+    renderDiceResult(diceOutput, collectDiceGroups(result.trace), {
+      onReroll: runRoll,
+      rerollLabel: '重投',
+      showValue: false,
+    })
     rawOutput.textContent = formatJson(result.raw)
     traceOutput.textContent = formatJson(result.trace)
     diagnosticsOutput.textContent = formatJson(result.diagnostics)
   } catch (error) {
     valueOutput.textContent = '-'
+    renderExplanation(['表达式尚未成功解析；请查看下方结构化错误。'])
+    renderDiceResult(diceOutput, [])
     rawOutput.textContent = '{}'
     traceOutput.textContent = '{}'
     diagnosticsOutput.textContent = '[]'
@@ -136,6 +178,12 @@ function showError(code: string, message: string, meta: unknown) {
   errorCode.textContent = code
   errorMessage.textContent = message
   errorMeta.textContent = formatJson(meta)
+}
+
+function renderExplanation(lines: string[]) {
+  explanationOutput.innerHTML = lines
+    .map(line => `<li>${escapeHtml(line)}</li>`)
+    .join('')
 }
 
 function clearError() {

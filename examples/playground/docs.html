@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OneDice 浏览器演示说明</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/docs.ts"></script>
+  </head>
+  <body>
+    <main class="docs-page">
+      <aside class="docs-toc" aria-label="说明目录">
+        <a class="back-link" href="./">返回演示页</a>
+        <h1>从骰子到表达式</h1>
+        <p>这页写给第一次接触桌游、骰系和 OneDice 表达式的人。</p>
+        <nav>
+          <a href="#concept-die">骰子、面数、点数</a>
+          <a href="#concept-basic-dice">基础骰</a>
+          <a href="#concept-sum">求和和修正值</a>
+          <a href="#concept-keep">保留与丢弃</a>
+          <a href="#concept-percentile">百分骰与奖惩骰</a>
+          <a href="#concept-success">成功数</a>
+          <a href="#concept-fate">FATE 骰</a>
+          <a href="#concept-tuple">元组</a>
+          <a href="#concept-fvtt">FVTT 兼容</a>
+          <a href="#feature-options">功能开关</a>
+        </nav>
+      </aside>
+
+      <article class="docs-content">
+        <section class="docs-hero">
+          <h2>先把表达式当成一句掷骰说明</h2>
+          <p>
+            OneDice 表达式不是编程题。你可以把 <code>2d6+1</code> 读成：
+            “投掷两个 6 面骰，把点数加起来，再加 1”。演示页会把这句话拆成自然语言、每个骰子的点数、JSON trace 和错误定位。
+          </p>
+          <p>
+            每个示例卡片都可以直接改表达式：修改数字、骰子面数或命令后缀后点“运行”，点“重投一次”会用当前表达式重新掷骰，点“重置”会恢复该示例的默认表达式和默认首屏结果。
+            卡片下方的自然语言解析来自当前实现生成的 trace；随意改成复杂表达式时，解析文字可能变长或带一些实现细节，这是正常现象。
+          </p>
+        </section>
+
+        <section id="concept-die" class="doc-card">
+          <h2>1. 骰子、面数、点数</h2>
+          <p>
+            一颗骰子有若干个面。常见六面骰写作 d6，因为它有 6 个可能点数：1 到 6。
+            d20 是 20 面骰，可能点数是 1 到 20。投掷后朝上的数字叫“点数”。
+          </p>
+          <div class="example-block">
+            <h3>示例：<code>d6</code></h3>
+            <p>这表示投掷 1 个 6 面骰。卡片会显示当前投出的点数；点击重投后点数会随之更新。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="d6" data-random="4"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>d20</code></h3>
+            <p>这表示投掷 1 个 20 面骰。很多桌游用 d20 表示一次判定，例如攻击、检定或豁免。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="d20" data-random="17"></div>
+          </div>
+        </section>
+
+        <section id="concept-basic-dice" class="doc-card">
+          <h2>2. 基础骰</h2>
+          <p>
+            “基础骰”就是最普通的 <code>AdB</code>：A 表示投几个，B 表示每个骰子有几面。
+            <code>2d6</code> 就是“投两个 6 面骰”。如果省略 A，默认是 1；如果省略 B，默认是 100。
+          </p>
+          <div class="example-grid">
+            <div class="example-block">
+              <h3>示例：<code>2d6</code></h3>
+              <p>投两个 6 面骰。卡片会把两颗骰子的点数分开显示，并在上方显示当前合计结果。</p>
+              <div class="doc-dice-result" data-dice-example data-expression="2d6" data-random="3,5"></div>
+            </div>
+            <div class="example-block">
+              <h3>示例：<code>d</code></h3>
+              <p><code>d</code> 省略了骰数和面数，等价于 <code>1d100</code>，也就是投 1 个 100 面骰。</p>
+              <div class="doc-dice-result" data-dice-example data-expression="d" data-random="42"></div>
+            </div>
+            <div class="example-block">
+              <h3>示例：<code>2d</code></h3>
+              <p><code>2d</code> 省略了面数，等价于 <code>2d100</code>。卡片会显示两颗 d100 的当前点数和合计。</p>
+              <div class="doc-dice-result" data-dice-example data-expression="2d" data-random="30,40"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="concept-sum" class="doc-card">
+          <h2>3. 求和和修正值</h2>
+          <p>
+            表达式可以把多个掷骰结果和普通数字组合起来。普通数字常被叫作“修正值”：
+            例如角色力量加值、装备加值或临时奖励。
+          </p>
+          <div class="example-block">
+            <h3>示例：<code>2d6+1d20</code></h3>
+            <p>
+              先投两个 6 面骰，再投一个 20 面骰，最后把两部分相加。
+              演示页会把这三颗骰子分成 <code>2d6</code> 和 <code>1d20</code> 两组显示。
+            </p>
+            <div class="doc-dice-result" data-dice-example data-expression="2d6+1d20" data-random="3,5,17"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>1d20+5</code></h3>
+            <p>投一个 d20，再加固定修正值 5。重投只会改变 d20 的点数，不会改变这个 +5。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="1d20+5" data-random="12"></div>
+          </div>
+        </section>
+
+        <section id="concept-keep" class="doc-card">
+          <h2>4. 保留与丢弃</h2>
+          <p>
+            有些规则会要求“投很多骰，只保留其中几个”。<code>k</code> 表示保留最大，<code>q</code> 表示保留最小。
+            未保留的骰子会显示为“丢弃”，它们仍然被投出了，只是不计入结果。
+          </p>
+          <div class="example-block">
+            <h3>示例：<code>4d6k3</code></h3>
+            <p>投四个 d6，只保留最大的三个。卡片会标出哪些骰子计入结果、哪些骰子被丢弃。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="4d6k3" data-random="2,6,4,1"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>3d20q1</code></h3>
+            <p>投三个 d20，只保留最小的一个。重投后，卡片会重新标出当前被保留的最小值。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="3d20q1" data-random="15,7,19"></div>
+          </div>
+        </section>
+
+        <section id="concept-percentile" class="doc-card">
+          <h2>5. 百分骰与奖惩骰</h2>
+          <p>
+            百分骰常用于 1 到 100 的判定。COC 规则里常见“奖励骰”和“惩罚骰”：
+            它们会多投十位骰，然后按规则选更有利或更不利的十位。
+          </p>
+          <div class="concept-detail">
+            <h3>把 <code>b1</code> / <code>p1</code> 拆开看</h3>
+            <dl class="syntax-breakdown">
+              <dt><code>b</code></dt>
+              <dd>bonus，奖励骰。它不会给结果“加 1”，而是给百分骰多一个十位候选，最后取更小的百分结果，通常对玩家更有利。</dd>
+              <dt><code>p</code></dt>
+              <dd>penalty，惩罚骰。它也不是把结果“减 1”，而是多一个十位候选，最后取更大的百分结果，通常更不利。</dd>
+              <dt><code>1</code></dt>
+              <dd>额外十位骰数量。<code>b1</code> 表示多投 1 个十位；<code>b2</code> 会多投 2 个十位。这个数字可以修改，当前合同要求它是非负整数；规则书里最常见的是 1。</dd>
+              <dt>个位骰</dt>
+              <dd>百分骰结果由“个位 + 十位”组成。OneDice 会先投一个个位，再投基础十位和额外十位。比如个位是 3、十位候选是 8 和 2，就得到 83 和 23。</dd>
+            </dl>
+            <p>
+              <code>b1</code> 和 <code>p1</code> 是简写；在普通 <code>d</code> 表达式里也可以写
+              <code>1d100b1</code> 或 <code>1d100p1</code>。如果写 <code>2d100b1</code>，就是做两次带奖励骰的百分骰，再把两次结果相加。
+            </p>
+            <p>
+              这里的数字只控制“额外十位骰数量”，不控制面数，也不会直接加到结果上。
+              <code>b0</code> / <code>p0</code> 表示没有额外十位，效果接近普通百分骰；<code>b2</code> / <code>p2</code> 会更强，因为候选十位更多。
+            </p>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>b1</code></h3>
+            <p>奖励骰会投个位、基础十位和额外十位。卡片会把基础十位和额外十位都列出来，并标出当前采用的较小百分结果。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="b1" data-random="3,8,2"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>p1</code></h3>
+            <p>惩罚骰取更不利的结果。点击重投后，以卡片里标出的当前候选值和采用结果为准。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="p1" data-random="3,2,8"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>b2</code></h3>
+            <p>
+              <code>b2</code> 表示多投 2 个额外十位。候选十位越多，奖励骰越容易选到较低的百分结果；
+              重投后卡片会重新标出哪一个十位被采用。
+            </p>
+            <div class="doc-dice-result" data-dice-example data-expression="b2" data-random="4,9,5,2"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>1d100b1</code></h3>
+            <p>
+              这是把奖励骰写在普通 <code>d</code> 表达式后面。它只投 1 次百分骰：
+              卡片会显示个位、基础十位、额外十位，以及当前奖励骰采用的百分结果。
+            </p>
+            <div class="doc-dice-result" data-dice-example data-expression="1d100b1" data-random="3,8,2"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>2d100p1</code></h3>
+            <p>
+              这里的 <code>2</code> 表示做两次带惩罚骰的百分骰，再把两次采用结果相加。
+              卡片会分成两组显示，方便看清每一次百分骰各自采用了哪个十位。
+            </p>
+            <div class="doc-dice-result" data-dice-example data-expression="2d100p1" data-random="3,2,8,7,1,4"></div>
+          </div>
+        </section>
+
+        <section id="concept-success" class="doc-card">
+          <h2>6. 成功数</h2>
+          <p>
+            有些骰系不关心总和，而是数“有几个骰子达标”。例如阈值是 5，
+            那么每个结果不低于 5 的骰子算 1 个成功。
+          </p>
+          <div class="concept-detail">
+            <h3>掷骰表达式后面的“后缀位置”</h3>
+            <p>
+              在 <code>1d20cs&gt;15</code> 里，<code>1d20</code> 是基础骰，后面的 <code>cs&gt;15</code>
+              是后缀。后缀会改变“投完以后怎么取值”：有的后缀保留几个骰子，有的后缀把百分骰变成奖惩骰，有的后缀把每颗骰子改成成功/失败计数。
+            </p>
+            <table class="syntax-table">
+              <thead>
+                <tr>
+                  <th>后缀</th>
+                  <th>读法</th>
+                  <th>例子</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>kN</code></td>
+                  <td>keep high</td>
+                  <td><code>4d6k3</code></td>
+                  <td>保留最大的 N 个骰子，N 可以改，但不能大于骰子数量。</td>
+                </tr>
+                <tr>
+                  <td><code>qN</code></td>
+                  <td>keep low</td>
+                  <td><code>3d20q1</code></td>
+                  <td>保留最小的 N 个骰子。</td>
+                </tr>
+                <tr>
+                  <td><code>bN</code> / <code>pN</code></td>
+                  <td>bonus / penalty</td>
+                  <td><code>1d100b1</code></td>
+                  <td>百分骰奖惩。N 是额外十位骰数量，不是结果加减值。</td>
+                </tr>
+                <tr>
+                  <td><code>aN</code></td>
+                  <td>OneDice 成功池</td>
+                  <td><code>4d6a5</code></td>
+                  <td>统计点数不低于 N 的骰子数量。</td>
+                </tr>
+                <tr>
+                  <td><code>cs&gt;N</code></td>
+                  <td>FVTT count successes</td>
+                  <td><code>1d20cs&gt;15</code></td>
+                  <td>FVTT 兼容成功计数，需要选择 FVTT 语法并打开 <code>fvttSuccessCounting</code>。</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              这些后缀不是都能随意叠在一起。当前 <code>d</code> 表达式合同会拒绝
+              <code>k/q</code> 与 <code>b/p</code> 混用，也会拒绝 <code>a</code> 与 <code>k/q</code> 或 <code>b/p</code> 混用；
+              这样浏览器演示才能给出稳定的错误码、范围和提示。
+            </p>
+          </div>
+          <div class="concept-detail">
+            <h3>把 <code>1d20cs&gt;15</code> 拆开看</h3>
+            <dl class="syntax-breakdown">
+              <dt><code>1d20</code></dt>
+              <dd>先投 1 个 20 面骰。这是被统计的来源。</dd>
+              <dt><code>cs</code></dt>
+              <dd>count successes，统计成功数。它不再关心总和，而是数有几个结果满足条件。</dd>
+              <dt><code>&gt;</code></dt>
+              <dd>比较符，意思是“必须大于”。这个位置可以换成 <code>&gt;=</code>、<code>&lt;</code>、<code>&lt;=</code>、<code>=</code>，也可以省略比较符写成 <code>cs15</code>。</dd>
+              <dt><code>15</code></dt>
+              <dd>目标值。<code>cs&gt;15</code> 表示大于 15 才算成功；<code>cs&gt;=15</code> 表示 15 或更高也算成功；<code>cs15</code> 等价于 <code>cs=15</code>。</dd>
+            </dl>
+            <table class="syntax-table compact">
+              <thead>
+                <tr>
+                  <th>写法</th>
+                  <th>意思</th>
+                  <th>适合表达</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>cs&gt;15</code></td>
+                  <td>点数必须大于 15</td>
+                  <td>严格超过目标值才成功。</td>
+                </tr>
+                <tr>
+                  <td><code>cs&gt;=15</code></td>
+                  <td>点数大于或等于 15</td>
+                  <td>达到目标值也算成功。</td>
+                </tr>
+                <tr>
+                  <td><code>cs&lt;3</code></td>
+                  <td>点数必须小于 3</td>
+                  <td>低点数越好，或统计失败/危险结果。</td>
+                </tr>
+                <tr>
+                  <td><code>cs&lt;=2</code></td>
+                  <td>点数小于或等于 2</td>
+                  <td>2 以下都算命中条件。</td>
+                </tr>
+                <tr>
+                  <td><code>cs=1</code> / <code>cs1</code></td>
+                  <td>点数正好等于 1</td>
+                  <td>统计精确点数，例如数有几个 1。</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              注意：可以省略的是比较符，不是目标值。<code>1d20cs</code> 没有说明要和哪个数字比较，所以会返回带 range 和 hint 的结构化错误。
+              当前实现只支持 FVTT 成功计数 <code>cs</code>。类似 <code>cf</code>（失败计数）、
+              <code>df</code>（扣除失败）、<code>sf</code>（减去失败）和 <code>ms</code>（成功差值）
+              会被识别为 FVTT 保留语法，但仍会返回结构化“不支持语法”错误。
+            </p>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>4d6a5</code></h3>
+            <p>投四个 d6，统计点数不低于 5 的骰子数量。卡片会显示每颗骰子的当前点数，并标出哪些骰子计入成功数。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="4d6a5" data-random="6,2,5,4"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>1d20cs&gt;15</code></h3>
+            <p>这是 FVTT 风格成功计数：只统计大于 15 的 d20。需要 FVTT 兼容语法和成功计数开关。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="1d20cs&gt;15" data-syntax="fvtt-compatible" data-features="fvttSuccessCounting" data-random="18"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>4d6cs&gt;=5</code></h3>
+            <p>
+              投四个 d6，比较符是 <code>&gt;=</code>，所以当前点数大于或等于 5 的骰子都会计为成功。
+              重投后以卡片里的当前点数和成功数为准。
+            </p>
+            <div class="doc-dice-result" data-dice-example data-expression="4d6cs&gt;=5" data-syntax="fvtt-compatible" data-features="fvttSuccessCounting" data-random="4,5,6,2"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>4d6cs1</code></h3>
+            <p>
+              省略比较符时，<code>cs1</code> 等价于 <code>cs=1</code>，意思是“点数正好等于 1 才算成功”。
+              重投后，卡片会重新统计当前有几颗骰子正好等于 1。
+            </p>
+            <div class="doc-dice-result" data-dice-example data-expression="4d6cs1" data-syntax="fvtt-compatible" data-features="fvttSuccessCounting" data-random="1,2,1,6"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>4d6cs&lt;3</code></h3>
+            <p>
+              这里比较符是 <code>&lt;</code>，表示只统计小于 3 的点数。
+              重投后以卡片显示的当前点数和成功数为准。
+            </p>
+            <div class="doc-dice-result" data-dice-example data-expression="4d6cs&lt;3" data-syntax="fvtt-compatible" data-features="fvttSuccessCounting" data-random="2,5,1,3"></div>
+          </div>
+        </section>
+
+        <section id="concept-fate" class="doc-card">
+          <h2>7. FATE 骰</h2>
+          <p>
+            FATE 骰不是普通数字骰。每颗骰子可能是 <code>+</code>、<code>0</code> 或 <code>-</code>，
+            分别代表 +1、0、-1，最后把它们加起来。
+          </p>
+          <div class="example-block">
+            <h3>示例：<code>4f</code></h3>
+            <p>投四个 FATE 骰。卡片会显示每颗骰子的当前符号，并在上方显示它们换算后的合计。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="4f" data-random="0,1,2,0"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>4df</code></h3>
+            <p><code>df</code> 是常见别名，需要开启 FATE 别名开关。它会被归一化成当前库支持的 FATE 掷骰。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="4df" data-features="fateAlias" data-random="0,1,2,0"></div>
+          </div>
+        </section>
+
+        <section id="concept-tuple" class="doc-card">
+          <h2>8. 元组</h2>
+          <p>
+            元组可以理解为“把多个结果放进一个列表”。元组不会天然等同于求和，
+            需要通过选取、投影或裁切告诉系统如何使用这些值。
+          </p>
+          <div class="example-block">
+            <h3>示例：<code>[1,2,3]kh1</code></h3>
+            <p>先得到列表 [1, 2, 3]，再保留最大的一项，所以结果是 3。需要开启元组字面量和元组选择/丢弃。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="[1,2,3]kh1" data-features="tupleLiterals,tupleOperators"></div>
+          </div>
+          <div class="example-block">
+            <h3>示例：<code>{4d6,3d8}kh</code></h3>
+            <p>这是 FVTT 风格的骰池写法。先投 4 个 d6 和 3 个 d8，再保留最高结果。需要 FVTT 兼容语法和元组操作。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="{4d6,3d8}kh" data-syntax="fvtt-compatible" data-features="tupleOperators" data-random="6,2,3,4,7,1,2"></div>
+          </div>
+        </section>
+
+        <section id="concept-fvtt" class="doc-card">
+          <h2>9. FVTT 兼容</h2>
+          <p>
+            FVTT 是一个常见的线上桌游平台。不同平台的骰子写法不完全一样。
+            本演示的 FVTT 兼容模式只实现受控子集：它会把已支持写法归一化，不会承诺支持所有 FVTT 宏或运行时绑定。
+          </p>
+          <div class="example-block">
+            <h3>示例：<code>@Actor[abc]</code></h3>
+            <p>这是 FVTT 运行时对象绑定，浏览器演示会返回结构化“不支持语法”错误，而不是当成普通 JavaScript 执行。</p>
+            <div class="doc-dice-result" data-dice-example data-expression="@Actor[abc]" data-syntax="fvtt-compatible"></div>
+          </div>
+        </section>
+
+        <section id="feature-options" class="doc-card">
+          <h2>10. 功能开关</h2>
+          <p>
+            功能开关用于保护实验语法。不开启时，旧的 V1 表达式保持原样；
+            开启后才允许对应的新写法。
+          </p>
+          <div class="feature-list">
+            <section class="feature-item" id="feature-tupleLiterals">
+              <h3><code>tupleLiterals</code></h3>
+              <p>允许直接写列表。列表像一个盒子，可以把多个数字或掷骰结果放在一起。只开这个选项时，列表默认取最后一项作为数值。</p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>[1,2,3]</code> 表示列表里有 1、2、3，默认结果是最后一项 3。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[1,2,3]" data-features="tupleLiterals"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>[7,2]</code> 只证明“列表字面量”能被解析；不开其他元组开关时，默认展示最后一项 2。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[7,2]" data-features="tupleLiterals"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-tupleOperators">
+              <h3><code>tupleOperators</code></h3>
+              <p>
+                允许对列表使用 <code>kh</code>、<code>kl</code>、<code>dh</code>、<code>dl</code>。
+                <code>k</code> 是 keep，保留；<code>d</code> 是 drop，丢弃；<code>h</code> 是 high，高值；<code>l</code> 是 low，低值。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>[1,2,3]kh1</code> 表示保留最高的 1 项，也就是 3。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[1,2,3]kh1" data-features="tupleLiterals,tupleOperators"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>[1,2,3]dl1</code> 表示丢弃最低的 1 项，剩下 2 和 3，结果是 5。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[1,2,3]dl1" data-features="tupleLiterals,tupleOperators"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-clampOperators">
+              <h3><code>clampOperators</code></h3>
+              <p>
+                允许用 <code>min</code> / <code>max</code> 把结果限制在边界内。
+                <code>min10</code> 表示结果不能低于 10；<code>max10</code> 表示结果不能高于 10。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>1d20max10</code> 先投 d20，再把结果压到不高于 10。卡片会显示当前骰点，结果值会显示裁剪后的数字。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="1d20max10" data-features="clampOperators" data-random="17"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>1d20min10</code> 先投 d20，再把结果抬到不低于 10。重投后以卡片里的当前骰点和裁剪结果为准。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="1d20min10" data-features="clampOperators" data-random="4"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-tupleProjection">
+              <h3><code>tupleProjection</code></h3>
+              <p>
+                允许用 <code>tp</code> 把列表投影成可参与后续计算的数值。最常见的投影是把列表里的项目求和。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>[1,2,3]tp</code> 把列表 1、2、3 投影为求和结果 6。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[1,2,3]tp" data-features="tupleLiterals,tupleProjection"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>[2,5]tp</code> 把两个项目投影为 7。这里的 <code>tp</code> 是“把列表变成数值”的动作。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[2,5]tp" data-features="tupleLiterals,tupleProjection"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-tupleSlice">
+              <h3><code>tupleSlice</code></h3>
+              <p>
+                允许用 <code>sp[...]</code> 从列表中按位置取一段。当前索引按 1 开始数，
+                所以第 1 项是列表最左边的项目。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>[1,2,3]sp[1,2]</code> 取第 1 到第 2 项，也就是 1 和 2，结果为 3。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[1,2,3]sp[1,2]" data-features="tupleLiterals,tupleSlice"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>[1,2,3,4]sp[2,3]</code> 取第 2 到第 3 项，也就是 2 和 3，结果为 5。方括号里的数字是位置，不是点数。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="[1,2,3,4]sp[2,3]" data-features="tupleLiterals,tupleSlice"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-conditionals">
+              <h3><code>conditionals</code></h3>
+              <p>
+                允许比较、逻辑判断和三段式条件表达式。比较成立记为 1，不成立记为 0；
+                条件表达式写作 <code>条件?成立时:不成立时</code>。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>1?1d6:1d4</code> 的条件是 1，表示成立，所以只投 <code>1d6</code>。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="1?1d6:1d4" data-features="conditionals" data-random="5"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>0?1d6:1d4</code> 的条件是 0，表示不成立，所以只投 <code>1d4</code>。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="0?1d6:1d4" data-features="conditionals" data-random="3"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-loopOperator">
+              <h3><code>loopOperator</code></h3>
+              <p>
+                允许用 <code>lp</code> 重复执行表达式。<code>3lp[1d6]</code> 可以读成：
+                “从 1 到 3，一共执行 3 次，每次投 1 个 d6”。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>3lp[1d6]</code> 会重复三次 <code>1d6</code>。卡片会把三次循环里的骰子分别列出。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="3lp[1d6]" data-features="loopOperator" data-random="2,4,6"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>2lp[1d4+1]</code> 会重复两次“投 d4 再加 1”。卡片会显示每次循环里的 d4，结果值会包含每次的 +1。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="2lp[1d4+1]" data-features="loopOperator" data-random="3,2"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-fateAlias">
+              <h3><code>fateAlias</code></h3>
+              <p>
+                允许 <code>df</code> 这种 FATE 常见别名。不开启时，<code>df</code> 会被保留并拒绝；
+                开启后它会归一化为本库的 FATE 掷骰。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>4df</code> 投四个 FATE 骰，结果可能是 <code>+</code>、<code>0</code>、<code>-</code>。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="4df" data-features="fateAlias" data-random="0,1,2,0"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>1df+2</code> 先投 1 个 FATE 骰，再加 2。重投后，FATE 骰符号会变，固定的 +2 不变。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="1df+2" data-features="fateAlias" data-random="1"></div>
+              </div>
+            </section>
+
+            <section class="feature-item" id="feature-fvttSuccessCounting">
+              <h3><code>fvttSuccessCounting</code></h3>
+              <p>
+                允许 FVTT 风格 <code>cs</code> 成功计数语法。它必须和 FVTT 兼容语法一起使用。
+                支持 <code>cs&gt;</code>、<code>cs&gt;=</code>、<code>cs&lt;</code>、<code>cs&lt;=</code>、<code>cs=</code> 和省略比较符的精确匹配。
+              </p>
+              <div class="feature-example">
+                <p><strong>示例：</strong><code>4d6cs&gt;4</code> 统计大于 4 的骰子。卡片会显示当前四颗 d6，并在解释里给出本次成功数。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="4d6cs&gt;4" data-syntax="fvtt-compatible" data-features="fvttSuccessCounting" data-random="2,5,6,4"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>再看一个：</strong><code>4d6cs&lt;=2</code> 统计小于或等于 2 的骰子。重投后以卡片里的当前点数和解释里的成功数为准。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="4d6cs&lt;=2" data-syntax="fvtt-compatible" data-features="fvttSuccessCounting" data-random="2,5,1,3"></div>
+              </div>
+              <div class="feature-example">
+                <p><strong>精确匹配：</strong><code>4d6cs1</code> 等价于 <code>4d6cs=1</code>，只统计点数正好为 1 的骰子。</p>
+                <div class="doc-dice-result" data-dice-example data-expression="4d6cs1" data-syntax="fvtt-compatible" data-features="fvttSuccessCounting" data-random="1,2,1,6"></div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>

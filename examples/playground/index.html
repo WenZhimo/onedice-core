@@ -13,6 +13,7 @@
           <div>
             <h1 id="playground-title">@onedice/core 浏览器演示</h1>
             <p>用于检查浏览器端结果、原始值、掷骰轨迹、诊断信息和结构化错误。</p>
+            <p><a class="inline-link" href="./docs.html">第一次接触骰子表达式？从零开始阅读说明页。</a></p>
           </div>
           <button id="roll-button" type="button">掷骰</button>
         </div>
@@ -45,22 +46,106 @@
         </label>
 
         <section class="flags" aria-label="功能开关">
-          <label class="check"><input type="checkbox" data-feature="tupleLiterals" />元组字面量</label>
-          <label class="check"><input type="checkbox" data-feature="tupleOperators" />元组选择/丢弃</label>
-          <label class="check"><input type="checkbox" data-feature="clampOperators" />上下限裁剪</label>
-          <label class="check"><input type="checkbox" data-feature="tupleProjection" />元组投影</label>
-          <label class="check"><input type="checkbox" data-feature="tupleSlice" />元组裁切</label>
-          <label class="check"><input type="checkbox" data-feature="conditionals" />条件表达式</label>
-          <label class="check"><input type="checkbox" data-feature="loopOperator" />循环运算符</label>
-          <label class="check"><input type="checkbox" data-feature="fateAlias" />FATE 别名</label>
-          <label class="check"><input type="checkbox" data-feature="fvttSuccessCounting" />FVTT 成功计数</label>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许直接写 [1,2,3] 这类列表；详见说明页的“元组”。" data-tooltip="允许直接写 [1,2,3] 这类列表；详见说明页的“元组”。">
+              <input type="checkbox" data-feature="tupleLiterals" />元组字面量
+            </label>
+            <a href="./docs.html#feature-tupleLiterals" aria-label="查看元组字面量说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许对列表使用 kh/kl/dh/dl 选取或丢弃；详见说明页的“保留与丢弃”。" data-tooltip="允许对列表使用 kh/kl/dh/dl 选取或丢弃；详见说明页的“保留与丢弃”。">
+              <input type="checkbox" data-feature="tupleOperators" />元组选择/丢弃
+            </label>
+            <a href="./docs.html#feature-tupleOperators" aria-label="查看元组选择和丢弃说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许用 min/max 把结果限制在边界内；详见说明页的“功能开关”。" data-tooltip="允许用 min/max 把结果限制在边界内；详见说明页的“功能开关”。">
+              <input type="checkbox" data-feature="clampOperators" />上下限裁剪
+            </label>
+            <a href="./docs.html#feature-clampOperators" aria-label="查看上下限裁剪说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许把元组投影成求和、最后一项或原始元组；详见说明页的“功能开关”。" data-tooltip="允许把元组投影成求和、最后一项或原始元组；详见说明页的“功能开关”。">
+              <input type="checkbox" data-feature="tupleProjection" />元组投影
+            </label>
+            <a href="./docs.html#feature-tupleProjection" aria-label="查看元组投影说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许从列表中按位置取一段；详见说明页的“功能开关”。" data-tooltip="允许从列表中按位置取一段；详见说明页的“功能开关”。">
+              <input type="checkbox" data-feature="tupleSlice" />元组裁切
+            </label>
+            <a href="./docs.html#feature-tupleSlice" aria-label="查看元组裁切说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许类似“如果成立就投 d6，否则投 d4”的条件表达式；详见说明页的“功能开关”。" data-tooltip="允许类似“如果成立就投 d6，否则投 d4”的条件表达式；详见说明页的“功能开关”。">
+              <input type="checkbox" data-feature="conditionals" />条件表达式
+            </label>
+            <a href="./docs.html#feature-conditionals" aria-label="查看条件表达式说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许重复执行一个表达式，适合批量结果；详见说明页的“功能开关”。" data-tooltip="允许重复执行一个表达式，适合批量结果；详见说明页的“功能开关”。">
+              <input type="checkbox" data-feature="loopOperator" />循环运算符
+            </label>
+            <a href="./docs.html#feature-loopOperator" aria-label="查看循环运算符说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许 4df 这类 FATE 常见别名；详见说明页的“FATE 骰”。" data-tooltip="允许 4df 这类 FATE 常见别名；详见说明页的“FATE 骰”。">
+              <input type="checkbox" data-feature="fateAlias" />FATE 别名
+            </label>
+            <a href="./docs.html#feature-fateAlias" aria-label="查看 FATE 别名说明">说明</a>
+          </div>
+          <div class="flag-row">
+            <label class="check feature-help" title="允许 FVTT 风格 cs> 成功计数；详见说明页的“成功数”。" data-tooltip="允许 FVTT 风格 cs> 成功计数；详见说明页的“成功数”。">
+              <input type="checkbox" data-feature="fvttSuccessCounting" />FVTT 成功计数
+            </label>
+            <a href="./docs.html#feature-fvttSuccessCounting" aria-label="查看 FVTT 成功计数说明">说明</a>
+          </div>
         </section>
+
+        <details class="docs-quickref" open>
+          <summary>语法与选项速查</summary>
+          <div class="quickref-grid">
+            <section>
+              <h2>基础语法</h2>
+              <ul>
+                <li><code>AdB</code>：投掷 A 个 B 面骰，例如 <code>2d6</code>。</li>
+                <li><code>k/q</code>：保留最大或最小骰，例如 <code>4d6k3</code>。</li>
+                <li><code>p/b</code>：COC 惩罚骰或奖励骰，例如 <code>p1</code>、<code>b1</code>。</li>
+                <li><code>a</code>：普通 d 表达式内的成功计数阈值，例如 <code>4d6a5</code>。</li>
+                <li><code>f</code> / <code>df</code>：FATE 骰；<code>df</code> 需要开启 FATE 别名。</li>
+                <li><code>[]</code> 与 <code>{}</code>：元组、FVTT 池和变量插值按对应开关启用。</li>
+              </ul>
+            </section>
+            <section>
+              <h2>选项功能</h2>
+              <ul>
+                <li>语法模式控制 OneDice 默认语法或 FVTT 兼容归一化。</li>
+                <li>功能开关只启用已实现的实验语法，不会改变关闭状态下的 V1 行为。</li>
+                <li>固定随机序列会按调用顺序消费数字，用于复现掷骰。</li>
+                <li>错误范围会显示 <code>meta.range.start/end</code>，便于定位输入片段。</li>
+                <li><a class="inline-link" href="./docs.html#feature-options">查看每个选项的详细说明。</a></li>
+              </ul>
+            </section>
+          </div>
+        </details>
       </section>
 
       <section class="panel output" aria-label="掷骰输出">
-        <div class="value-card">
-          <span>结果值</span>
-          <output id="value-output">-</output>
+        <div class="summary-grid">
+          <div class="value-card">
+            <span>结果值</span>
+            <output id="value-output">-</output>
+          </div>
+
+          <section class="explanation-panel">
+            <h2>表达式解析</h2>
+            <ul id="explanation-output" class="explanation-list"></ul>
+          </section>
+
+          <section class="dice-panel">
+            <h2>骰子结果</h2>
+            <div id="dice-output" class="dice-output" aria-live="polite"></div>
+          </section>
         </div>
 
         <div id="error-card" class="error-card hidden">
