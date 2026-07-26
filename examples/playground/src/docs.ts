@@ -67,11 +67,6 @@ function renderExample(container: HTMLElement, useInitialRandom: boolean) {
     diceRoot.className = 'dice-output compact'
     renderDiceResult(diceRoot, collectDiceGroups(result.trace), {
       emptyText: '这个示例没有实际投骰；它展示的是列表、数字或错误处理概念。',
-      onReroll: () => {
-        state.expression = readExpressionInput(container, state.expression)
-        renderExample(container, false)
-      },
-      rerollLabel: '重投一次',
       resultLabel: shouldUseInitialRandom ? '默认示例结果' : '当前结果',
       showValue: true,
       value: result.value,
@@ -145,10 +140,6 @@ function createExampleControls(container: HTMLElement, state: ExampleState) {
   form.append(label, actions)
 
   return form
-}
-
-function readExpressionInput(container: HTMLElement, fallback: string) {
-  return container.querySelector<HTMLInputElement>('[data-example-expression]')?.value ?? fallback
 }
 
 function renderExampleError(container: HTMLElement, message: string) {
